@@ -7,112 +7,111 @@ void main() => runApp(MyApp());
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final titleSection = _TitleSection(
-        'Oeschinen Lake Campground', 'Kandersteg, Switzerland', 41);
-    final buttonSection = Container(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildButtonColumn(context, Icons.call, 'CALL'),
-          _buildButtonColumn(context, Icons.near_me, 'ROUTE'),
-          _buildButtonColumn(context, Icons.share, 'SHARE'),
-        ],
-      ),
-    );
-    final textSection = Container(
-      padding: const EdgeInsets.all(32.0),
-      child: Text(
-        'Lake Oeschinen lies at the foot of the Blüemlisalp in the Bernese Alps. Situated 1,578 meters above sea level, it is one of the larger Alpine Lakes. A gondola ride from Kandersteg, followed by a half-hour walk through pastures and pine forest, leads you to the lake, which warms to 20 degrees Celsius in the summer. Activities enjoyed here include rowing, and riding the summer toboggan run.',
-        softWrap: true,
-      ),
-    );
+    final buildings = [
+      Building(BuildingType.theater, 'CineArts at the Empire', '85 W Portal Ave'),
+      Building(BuildingType.theater, 'The Castro Theater', '429 Castro St'),
+      Building(BuildingType.theater, 'Alamo Drafthouse Cinema', '2550 Mission St'),
+      Building(BuildingType.theater, 'Roxie Theater', '3117 16th St'),
+      Building(BuildingType.theater, 'United Artists Stonestown Twin', '501 Buckingham Way'),
+      Building(BuildingType.theater, 'AMC Metreon 16', '135 4th St #3000'),
+      Building(BuildingType.restaurant, 'K\'s Kitchen', '1923 Ocean Ave'),
+      Building(BuildingType.restaurant, 'Chaiya Thai Restaurant', '72 Claremont Blvd'),
+      Building(BuildingType.restaurant, 'La Ciccia', '291 30th St'),
 
+      // double 一下
+      Building(BuildingType.theater, 'CineArts at the Empire', '85 W Portal Ave'),
+      Building(BuildingType.theater, 'The Castro Theater', '429 Castro St'),
+      Building(BuildingType.theater, 'Alamo Drafthouse Cinema', '2550 Mission St'),
+      Building(BuildingType.theater, 'Roxie Theater', '3117 16th St'),
+      Building(BuildingType.theater, 'United Artists Stonestown Twin', '501 Buckingham Way'),
+      Building(BuildingType.theater, 'AMC Metreon 16', '135 4th St #3000'),
+      Building(BuildingType.restaurant, 'K\'s Kitchen', '1923 Ocean Ave'),
+      Building(BuildingType.restaurant, 'Chaiya Thai Restaurant', '72 Claremont Blvd'),
+      Building(BuildingType.restaurant, 'La Ciccia', '291 30th St'),
+    ];
     return MaterialApp(
-      title: 'Flutter UI basic 1',
+      title: 'ListView demo',
       home: Scaffold(
         appBar: AppBar(
-          title: Text('Top Lakes'),
+          title: Text('Buildings'),
         ),
-        body: ListView(
-          children: <Widget>[
-            Image.asset(
-              'images/icon.jpg',
-              width: 600.0,
-              height: 240.0,
-              fit: BoxFit.cover,
-            ),
-            titleSection,
-            buttonSection,
-            textSection
-          ],
-        ),
+        body: BuildingListView(buildings, (index)=>debugPrint('item $index clickedl')),
       ),
     );
   }
 }
 
-class _TitleSection extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final int starCount;
+enum BuildingType { theater, restaurant }
 
-  _TitleSection(this.title, this.subtitle, this.starCount);
+class Building {
+  final BuildingType type;
+  final String title;
+  final String address;
+
+  Building(this.type, this.title, this.address);
+}
+
+//定义一个回调接口
+typedef OnItemClickListener = void Function(int position);
+
+class ItemView extends StatelessWidget {
+  final int position;
+  final Building building;
+  final OnItemClickListener listener;
+
+  ItemView(this.position, this.building, this.listener);
 
   @override
   Widget build(BuildContext context) {
-    //采用容器对内容进行包裹，container是一个控件。方便进行边距的设置
-    return Container(
-      padding: EdgeInsets.all(32.0),
-      child: Row(
-        children: <Widget>[
-          //为了让标题占满屏幕宽度的剩余空间，用Expanded把标题包裹起来
-          Expanded(
-            //Expanded只能包含一个子元素，使用的参数名是child，
-            child: Column(
-              //为了在竖直方向放两个标题，使用column包裹
-              crossAxisAlignment: CrossAxisAlignment.start, //交叉对齐
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Text(
-                    title,
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.grey[500]),
-                )
-              ],
-            ),
-            //这里是第二个Row的第二个子元素
+    final icon = Icon(
+        building.type == BuildingType.restaurant
+            ? Icons.restaurant
+            : Icons.theaters,
+        color: Colors.blue[500]);
+    final widget = Row(
+      children: <Widget>[
+        Container(
+          margin: EdgeInsets.all(16.0),
+          child: icon,
+        ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(building.title,
+                  style: TextStyle(
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.w500,
+                  )),
+              Text(building.address)
+            ],
           ),
-          Icon(
-            Icons.star,
-            color: Colors.red[500],
-          ),
-          Text(starCount.toString())
-        ],
-      ),
+        )
+      ],
+    );
+    // TODO: implement build
+    return InkWell(
+      onTap: () => listener(position),
+      child: widget,
     );
   }
 }
 
-Widget _buildButtonColumn(BuildContext context, IconData icon, String label) {
-  final color = Theme.of(context).primaryColor;
+class BuildingListView extends StatelessWidget {
+  final List<Building> buildings;
+  final OnItemClickListener listener;
 
-  return Column(
-    mainAxisSize: MainAxisSize.min,
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: <Widget>[
-      Icon(icon, color: color),
-      Container(
-        child: Text(
-          label,
-          style: TextStyle(
-              fontSize: 12.0, fontWeight: FontWeight.w400, color: color),
-        ),
-      )
-    ],
-  );
+  // 这是对外接口。外部通过构造函数传入数据和 listener
+  BuildingListView(this.buildings, this.listener);
+
+  @override
+  Widget build(BuildContext context) {
+    //ListView.builder可以按需求生成子控件
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        return new ItemView(index, buildings[index], listener);
+      },
+      itemCount: buildings.length,
+    );
+  }
 }

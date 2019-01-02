@@ -1,117 +1,113 @@
-import 'dart:math';
+import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/animation.dart';
 import 'package:flutter/material.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final buildings = [
-      Building(BuildingType.theater, 'CineArts at the Empire', '85 W Portal Ave'),
-      Building(BuildingType.theater, 'The Castro Theater', '429 Castro St'),
-      Building(BuildingType.theater, 'Alamo Drafthouse Cinema', '2550 Mission St'),
-      Building(BuildingType.theater, 'Roxie Theater', '3117 16th St'),
-      Building(BuildingType.theater, 'United Artists Stonestown Twin', '501 Buckingham Way'),
-      Building(BuildingType.theater, 'AMC Metreon 16', '135 4th St #3000'),
-      Building(BuildingType.restaurant, 'K\'s Kitchen', '1923 Ocean Ave'),
-      Building(BuildingType.restaurant, 'Chaiya Thai Restaurant', '72 Claremont Blvd'),
-      Building(BuildingType.restaurant, 'La Ciccia', '291 30th St'),
-
-      // double 一下
-      Building(BuildingType.theater, 'CineArts at the Empire', '85 W Portal Ave'),
-      Building(BuildingType.theater, 'The Castro Theater', '429 Castro St'),
-      Building(BuildingType.theater, 'Alamo Drafthouse Cinema', '2550 Mission St'),
-      Building(BuildingType.theater, 'Roxie Theater', '3117 16th St'),
-      Building(BuildingType.theater, 'United Artists Stonestown Twin', '501 Buckingham Way'),
-      Building(BuildingType.theater, 'AMC Metreon 16', '135 4th St #3000'),
-      Building(BuildingType.restaurant, 'K\'s Kitchen', '1923 Ocean Ave'),
-      Building(BuildingType.restaurant, 'Chaiya Thai Restaurant', '72 Claremont Blvd'),
-      Building(BuildingType.restaurant, 'La Ciccia', '291 30th St'),
-    ];
     return MaterialApp(
-      title: 'ListView demo',
+      title: 'Flutter animation demo',
       home: Scaffold(
         appBar: AppBar(
-          title: Text('Buildings'),
+          title: Text('Animation'),
         ),
-        body: BuildingListView(buildings, (index)=>debugPrint('item $index clickedl')),
+        body: AnimationDemoView(),
       ),
     );
   }
 }
 
-enum BuildingType { theater, restaurant }
-
-class Building {
-  final BuildingType type;
-  final String title;
-  final String address;
-
-  Building(this.type, this.title, this.address);
-}
-
-//定义一个回调接口
-typedef OnItemClickListener = void Function(int position);
-
-class ItemView extends StatelessWidget {
-  final int position;
-  final Building building;
-  final OnItemClickListener listener;
-
-  ItemView(this.position, this.building, this.listener);
-
+class AnimationDemoView extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    final icon = Icon(
-        building.type == BuildingType.restaurant
-            ? Icons.restaurant
-            : Icons.theaters,
-        color: Colors.blue[500]);
-    final widget = Row(
-      children: <Widget>[
-        Container(
-          margin: EdgeInsets.all(16.0),
-          child: icon,
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(building.title,
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.w500,
-                  )),
-              Text(building.address)
-            ],
-          ),
-        )
-      ],
-    );
-    // TODO: implement build
-    return InkWell(
-      onTap: () => listener(position),
-      child: widget,
-    );
+  State<StatefulWidget> createState() {
+    // TODO: implement createState
+    return _AnimationState();
   }
 }
 
-class BuildingListView extends StatelessWidget {
-  final List<Building> buildings;
-  final OnItemClickListener listener;
+class _AnimationState extends State<AnimationDemoView>
+    with SingleTickerProviderStateMixin {
+  static const padding = 16.0;
 
-  // 这是对外接口。外部通过构造函数传入数据和 listener
-  BuildingListView(this.buildings, this.listener);
+  AnimationController controller;
+  Animation<double> left;
+  Animation<Color> color;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    //只有在initState执行完，我们才能通过MediaQuery.of(context)获取mediaQueryData。
+    //这里通过创建一个Future从而在Dart事件队列里插入一个事件，以达到延迟执行的目的(类似于在Android中post一个Runable)
+    Future(_initState);
+  }
+
+  void _initState() {
+    controller = AnimationController(
+        //注意类定义的 with SingleTickerProviderStateMixin，提供 vsync 最简单的方法
+        //就是继承一个SingleTickerProviderStateMixin。这里的vsync跟Android里的vsync类似
+        vsync: this,
+        duration: const Duration(milliseconds: 2000));
+    color = ColorTween(begin: Colors.red, end: Colors.blue).animate(controller);
+    //我们通过MediaQuery获取屏幕的宽度
+    final mediaQueryData = MediaQuery.of(context);
+    var displayWidth = mediaQueryData.size.width;
+    debugPrint('width = $displayWidth');
+    left =
+        Tween(begin: padding, end: displayWidth - padding).animate(controller)
+          ..addListener(() {
+            //调用setState触发重新build一个widget，在build方法里，我们根据Animation<T>的当前值来创建widget,达到动画的效果
+            setState(() {});
+          }) //监听动画状态变化
+          ..addStatusListener((status) {
+            //让动画重复执行
+
+            //一次动画完成
+            if (status == AnimationStatus.completed) {
+              controller.reverse();
+            } else if (status == AnimationStatus.dismissed) {
+              controller.forward();
+            }
+          });
+    controller.forward();
+  }
 
   @override
   Widget build(BuildContext context) {
-    //ListView.builder可以按需求生成子控件
-    return ListView.builder(
-      itemBuilder: (context, index) {
-        return new ItemView(index, buildings[index], listener);
-      },
-      itemCount: buildings.length,
+    final unit = 24.0;
+    final marginLeft = left == null ? padding : left.value;
+
+    //把marginleft单位化
+    final unitizeLeft = (marginLeft - padding) / unit;
+    final unitizeTop = math.sin(unitizeLeft);
+
+    //unitizeTop+1 是把【-1，1】之间的值映射到【0.2】
+    //(unitizeTop+1)*unit 后是把单位化的值转回来
+    final marginTop = (unitizeTop + 1) * unit + padding;
+    final color = this.color == null ? Colors.red : this.color.value;
+    return Container(
+      //我们根据动画的进度设置圆点的位置
+      child: Container(
+        decoration: BoxDecoration(
+            color: color, borderRadius: BorderRadius.circular(7.5)),
+        width: 15.0,
+        height: 15,
+      ),
+      //根据动画的进度设置圆点的位置
+      margin: EdgeInsets.only(left: marginLeft, top: marginTop),
     );
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    controller.dispose();
   }
 }

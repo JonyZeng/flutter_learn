@@ -1,170 +1,113 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/animation.dart';
 import 'package:flutter/material.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Filutter UX demo',
-      home: MessageListScreen(),
-    );
-  }
-}
-
-//下面是消息列表的页面
-class MessageListScreen extends StatelessWidget {
-  final messageListKey =
-      GlobalKey<_MessageListState>(debugLabel: 'messageListKey');
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO: implement build
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Echo client'),
-      ),
-      body: MessageList(key: messageListKey),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-              context, MaterialPageRoute(builder: (_) => AddMessageScreen()));
-          debugPrint('result = $result');
-          if (result is Message) {
-            messageListKey.currentState.addMessage(result);
-          }
-        },
-        tooltip: 'Add message',
-        child: Icon(Icons.add),
+      title: 'Flutter animation demo',
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Animation'),
+        ),
+        body: AnimationDemoView(),
       ),
     );
   }
 }
 
-class MessageList extends StatefulWidget {
-  MessageList({Key key}) : super(key: key);
-
-  @override
-  State createState() {
-    // TODO: implement createState
-    return _MessageListState();
-  }
-}
-
-class _MessageListState extends State<MessageList> {
-  final List<Message> messages = [];
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO: implement build
-    return ListView.builder(itemBuilder: (context, index) {
-      final msg = messages[index];
-      final subtitle = DateTime.fromMillisecondsSinceEpoch(msg.timestamp)
-          .toLocal()
-          .toIso8601String();
-      return ListTile(
-        title: Text(msg.msg),
-        subtitle: Text(subtitle),
-      );
-    },
-    itemCount: messages.length,
-    );
-  }
-
-  void addMessage(Message msg) {
-    setState(() {
-      messages.add(msg);
-    });
-  }
-}
-
-class Message {
-  final String msg;
-  final int timestamp;
-
-  Message(this.msg, this.timestamp);
-
-  @override
-  String toString() {
-    // TODO: implement toString
-    return 'Message{msg: $msg, timestamp: $timestamp}';
-  }
-}
-
-//下面是发送消息的页面
-class AddMessageScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Add Message'),
-      ),
-      body: MessageFrom(),
-    );
-  }
-}
-
-class MessageFrom extends StatefulWidget {
+class AnimationDemoView extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
     // TODO: implement createState
-    return _MessageFromState();
+    return _AnimationState();
   }
 }
 
-class _MessageFromState extends State<MessageFrom> {
-  final editController = TextEditingController();
+class _AnimationState extends State<AnimationDemoView>
+    with SingleTickerProviderStateMixin {
+  static const padding = 16.0;
+
+  AnimationController controller;
+  Animation<double> left;
+  Animation<Color> color;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    //只有在initState执行完，我们才能通过MediaQuery.of(context)获取mediaQueryData。
+    //这里通过创建一个Future从而在Dart事件队列里插入一个事件，以达到延迟执行的目的(类似于在Android中post一个Runable)
+    Future(_initState);
+  }
+
+  void _initState() {
+    controller = AnimationController(
+        //注意类定义的 with SingleTickerProviderStateMixin，提供 vsync 最简单的方法
+        //就是继承一个SingleTickerProviderStateMixin。这里的vsync跟Android里的vsync类似
+        vsync: this,
+        duration: const Duration(milliseconds: 2000));
+    color = ColorTween(begin: Colors.red, end: Colors.blue).animate(controller);
+    //我们通过MediaQuery获取屏幕的宽度
+    final mediaQueryData = MediaQuery.of(context);
+    var displayWidth = mediaQueryData.size.width;
+    debugPrint('width = $displayWidth');
+    left =
+        Tween(begin: padding, end: displayWidth - padding).animate(controller)
+          ..addListener(() {
+            //调用setState触发重新build一个widget，在build方法里，我们根据Animation<T>的当前值来创建widget,达到动画的效果
+            setState(() {});
+          }) //监听动画状态变化
+          ..addStatusListener((status) {
+            //让动画重复执行
+
+            //一次动画完成
+            if (status == AnimationStatus.completed) {
+              controller.reverse();
+            } else if (status == AnimationStatus.dismissed) {
+              controller.forward();
+            }
+          });
+    controller.forward();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Row(
-        children: <Widget>[
-          //让输入框占满一行里除按钮外的所有空间
-          Expanded(
-            child: Container(
-              margin: EdgeInsets.only(right: 8.0),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Input message',
-                  contentPadding: EdgeInsets.all(0.0),
-                ),
-                style: TextStyle(fontSize: 22.0, color: Colors.black54),
-                controller: editController,
-                //自动获取焦点，弹出输入法
-                autofocus: true,
-              ),
-            ),
-          ),
-          InkWell(
-            onTap: () {
-              debugPrint('send: ${editController.text}');
-              var message = Message(
-                  editController.text, DateTime.now().millisecondsSinceEpoch);
-              Navigator.pop(context, message);
-            },
-            onDoubleTap: () => debugPrint('double tapped'),
-            onLongPress: () => debugPrint('long pressed'),
-            child: Container(
-              padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
-              decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(5.0)),
-              child: Text('send'),
-            ),
-          )
-        ],
+    final unit = 24.0;
+    final marginLeft = left == null ? padding : left.value;
+
+    //把marginleft单位化
+    final unitizeLeft = (marginLeft - padding) / unit;
+    final unitizeTop = math.sin(unitizeLeft);
+
+    //unitizeTop+1 是把【-1，1】之间的值映射到【0.2】
+    //(unitizeTop+1)*unit 后是把单位化的值转回来
+    final marginTop = (unitizeTop + 1) * unit + padding;
+    final color = this.color == null ? Colors.red : this.color.value;
+    return Container(
+      //我们根据动画的进度设置圆点的位置
+      child: Container(
+        decoration: BoxDecoration(
+            color: color, borderRadius: BorderRadius.circular(7.5)),
+        width: 15.0,
+        height: 15,
       ),
+      //根据动画的进度设置圆点的位置
+      margin: EdgeInsets.only(left: marginLeft, top: marginTop),
     );
   }
 
-//widget的生命中后期中，dispose生命周期方法在对象被widget树里永久移除的时候调用，这里可以被理解为对象要销毁了。我们这里主动调用dispose表示释放资源
   @override
   void dispose() {
     // TODO: implement dispose
     super.dispose();
-    editController.dispose();
+    controller.dispose();
   }
 }

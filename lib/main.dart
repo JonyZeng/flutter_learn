@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_learn/HttpEchoServer.dart';
+import 'package:flutter_learn/HttpEchoClient.dart';
 
 void main() => runApp(MyApp());
 
@@ -19,7 +21,6 @@ class MessageListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
     return Scaffold(
       appBar: AppBar(
         title: Text('Echo client'),
@@ -27,11 +28,16 @@ class MessageListScreen extends StatelessWidget {
       body: MessageList(key: messageListKey),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await Navigator.push(
+          Message result = await Navigator.push(
               context, MaterialPageRoute(builder: (_) => AddMessageScreen()));
-          debugPrint('result = $result');
-          if (result is Message) {
-            messageListKey.currentState.addMessage(result);
+          //
+          if (_client == null) return;
+          //把消息发送给服务器
+          Message msg = await _client.send(result.msg);
+          if (msg != null) {
+            messageListKey.currentState.addMessage(msg);
+          } else {
+            debugPrint('fail to send $result');
           }
         },
         tooltip: 'Add message',
@@ -51,23 +57,58 @@ class MessageList extends StatefulWidget {
   }
 }
 
-class _MessageListState extends State<MessageList> {
+HttpEchoServer _server;
+HttpEchoClient _client;
+
+class _MessageListState extends State<MessageList> with WidgetsBindingObserver {
   final List<Message> messages = [];
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    const port = 6060;
+    _server = HttpEchoServer(port);
+    //initState不是一个async函数，这里不能直接await _server.start(),
+    //flutter.then(...)跟await是等价的
+    _server.start().then((_) {
+      //等服务器启动后才创建客户端
+      _client = HttpEchoClient(port);
+      _client.getHistory().then((list) {
+        setState(() {
+          messages.addAll(list);
+        });
+      });
+      WidgetsBinding.instance.addObserver(this);
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // TODO: implement didChangeAppLifecycleState
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      var server = _server;
+      _server = null;
+      server?.close();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // TODO: implement build
-    return ListView.builder(itemBuilder: (context, index) {
-      final msg = messages[index];
-      final subtitle = DateTime.fromMillisecondsSinceEpoch(msg.timestamp)
-          .toLocal()
-          .toIso8601String();
-      return ListTile(
-        title: Text(msg.msg),
-        subtitle: Text(subtitle),
-      );
-    },
-    itemCount: messages.length,
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        final msg = messages[index];
+        final subtitle = DateTime.fromMillisecondsSinceEpoch(msg.timestamp)
+            .toLocal()
+            .toIso8601String();
+        return ListTile(
+          title: Text(msg.msg),
+          subtitle: Text(subtitle),
+        );
+      },
+      itemCount: messages.length,
     );
   }
 
@@ -84,9 +125,18 @@ class Message {
 
   Message(this.msg, this.timestamp);
 
+  Message.create(String msg)
+      : msg = msg,
+        timestamp = DateTime.now().millisecondsSinceEpoch;
+
+  Map<String, dynamic> toJson() => {"msg": "$msg", "timestamp": timestamp};
+
+  Message.fromJson(Map<String, dynamic> json)
+      : msg = json['msg'],
+        timestamp = json['timestamp'];
+
   @override
   String toString() {
-    // TODO: implement toString
     return 'Message{msg: $msg, timestamp: $timestamp}';
   }
 }
